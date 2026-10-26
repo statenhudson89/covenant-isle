@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Covenant Isle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: HUD strip, the game screen as large as the window allows, a hint line; panels slide in from the right (bottom sheet on phones). One dark look. */
+:root{
+  --bg:#100e1b; --panel:#f3ead6; --panel-ink:#2a2433; --line:#2d2843; --ink:#efe7d4; --muted:#a69db8; --sub:#6b6075;
+  --lamp:#f2a44e; --lamp-ink:#1b1206; --good:#2f7a4a; --good-bg:#d7efdc; --warn:#8a4a10; --warn-bg:#fbe0c0; --bad:#9a2430; --bad-bg:#f7d4d8;
+  --frame:#4f3b6b; --bezel:#06050b;
+  --display:"Press Start 2P", ui-monospace, "Courier New", monospace;
+  --body:"Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:var(--body);font-size:16px;line-height:1.45;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{max-width:1400px;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:8px;padding-block:10px}
+.hud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;min-width:0}
+.brand b{font-family:var(--display);font-size:11px;letter-spacing:.06em;color:var(--lamp);font-weight:400}
+#place{font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-right{display:flex;flex-wrap:wrap;gap:6px}
+.hbtn{font-family:var(--body);font-size:15px;color:var(--ink);background:#1b1829;border:2px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+.hbtn[aria-pressed="true"]{border-color:var(--lamp);color:var(--lamp)}
+.hbtn.alert{background:#5a2430;border-color:#8a3040}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.screen{position:relative;width:min(100%, calc((100dvh - 120px) * 1.7778));aspect-ratio:480/270;max-width:100%;border:5px solid var(--bezel);border-radius:10px;overflow:hidden;background:#000;box-shadow:0 0 0 2px var(--line)}
+canvas#game{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:pointer}
+#mini{position:absolute;right:8px;top:8px;width:min(30%,256px);height:auto;aspect-ratio:128/96;image-rendering:pixelated;border:2px solid rgba(6,5,11,.85);border-radius:4px;background:#000;cursor:crosshair;opacity:.95}
+#hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(6,5,11,.82);color:var(--ink);padding:5px 10px;border-radius:6px;font-size:15px;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+#toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--panel);color:var(--panel-ink);border:2px solid var(--frame);padding:6px 12px;border-radius:8px;font-size:15px;max-width:80%;text-align:center}
+#arrow{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#d8485f;border:2px solid #fff6e0;cursor:pointer;padding:0}
+#arrow::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border-left:8px solid #fff6e0;border-top:5px solid transparent;border-bottom:5px solid transparent;transform:translate(-30%,-50%) rotate(var(--rot,0rad));transform-origin:30% 50%}
+.shout{position:absolute;transform:translate(-50%,-100%);max-width:44%;background:#fffaf0;color:#1c1426;border:2px solid #06050b;padding:4px 8px;font-size:clamp(10px,1.25vw,14px);line-height:1.3;pointer-events:none;box-shadow:2px 2px 0 #06050b}
+.shout::after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-4px;border:4px solid transparent;border-top-color:#06050b}
+.banner{position:absolute;left:0;right:0;top:34%;display:grid;justify-items:center;gap:6px;pointer-events:none;opacity:0}
+.banner b{font-family:var(--display);font-weight:400;font-size:clamp(12px,2.4vw,22px);letter-spacing:.08em;color:#fff6e0;text-shadow:2px 2px 0 #06050b,-1px -1px 0 #06050b}
+.banner span{font-size:clamp(13px,1.8vw,18px);color:#ffe08a;text-shadow:1px 1px 0 #06050b}
+.banner.show{animation:bannerIn 2.8s steps(14) forwards}
+@keyframes bannerIn{0%{opacity:0;transform:translateY(6px)}15%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.banner.show{animation:none;opacity:1}}
+.keys{margin:0;text-align:center;color:var(--muted);font-size:14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #ffe08a;outline-offset:2px}
+.panel{position:fixed;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));width:min(460px,calc(100vw - 20px));overflow:auto;background:var(--panel);color:var(--panel-ink);border:3px solid var(--frame);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);padding:14px 16px 18px;z-index:5}
+@media (max-width:700px){.panel{top:auto;left:max(10px,env(safe-area-inset-left,0px));width:auto;max-height:72dvh}}
+.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;position:sticky;top:-14px;background:var(--panel);padding-top:2px;padding-bottom:8px;border-bottom:2px solid #e2d6bd;margin-bottom:8px}
+.eyebrow{font-family:var(--display);font-size:9px;letter-spacing:.06em;color:var(--frame);margin:0 0 6px}
+.panel h2{font-size:21px;margin:0;line-height:1.2;text-wrap:balance}
+#pSub{margin:4px 0 0;color:var(--sub);font-size:15px}
+.sec{margin-top:14px}
+.sec h3{font-family:var(--display);font-size:9px;letter-spacing:.06em;color:var(--sub);margin:0 0 8px;font-weight:400}
+.muted{color:var(--sub)} .small{font-size:14px}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.task{margin:8px 0 0;font-size:16px}
+.chip{display:inline-block;font-size:13px;padding:1px 8px;border-radius:999px;background:#e4dcc9;color:#4a4152;white-space:nowrap}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.dim{opacity:.7}
+.draft,.radar{border:2px solid #e2d6bd;border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#fbf5e8}
+.draft-head{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.kind{font-family:var(--display);font-size:8px;letter-spacing:.06em;color:var(--frame)}
+.draft h4{margin:6px 0 4px;font-size:17px;line-height:1.25}
+.draft p,.radar p{margin:4px 0}
+.draft-text{white-space:pre-wrap;background:#fffaf0;border:1px dashed #c9bba0;border-radius:6px;padding:8px 10px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
+.draft-text.clip{max-height:12em;overflow:hidden;mask-image:linear-gradient(#000 70%,transparent)}
+.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.btn{font-family:var(--body);font-size:15px;padding:5px 12px;border:2px solid var(--frame);background:#fff;color:var(--panel-ink);border-radius:7px;cursor:pointer}
+.btn:hover{background:#efe6f7}
+.btn.ok{background:var(--frame);color:#fff} .btn.ok:hover{background:#3d2d55}
+.btn.warn{border-color:#a0582a;color:#7a3a10} .btn.ghost{border-color:#c9bba0;background:transparent}
+.btn.tiny{font-size:14px;padding:2px 9px}
+.link{background:none;border:0;color:var(--frame);text-decoration:underline;cursor:pointer;font-family:var(--body);font-size:14px;padding:0}
+.fb{display:grid;gap:6px;margin-top:8px}
+textarea,input{font-family:var(--body);font-size:16px;padding:7px 9px;border:2px solid #c9bba0;border-radius:7px;background:#fffaf0;color:var(--panel-ink);width:100%}
+.goal{padding:8px 0;border-top:1px solid #e2d6bd}
+.goal:first-of-type{border-top:0}
+.goal-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.bar{height:9px;background:#e4dcc9;border-radius:5px;overflow:hidden;margin:6px 0}
+.bar span{display:block;height:100%;background:var(--good)}
+.bar.thin{height:5px;margin:2px 0 0;grid-column:1/-1}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.ph{font-size:13px;padding:1px 8px;border-radius:999px;background:#e4dcc9;color:#4a4152}
+.ph.now{background:var(--frame);color:#fff}
+.sets{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}
+.sets li{display:grid;grid-template-columns:1fr auto auto;gap:4px 8px;align-items:center;font-size:15px}
+.sets .n{color:var(--sub);font-variant-numeric:tabular-nums}
+.log{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.log li{display:grid;grid-template-columns:4.8em 1fr;gap:8px;font-size:15px}
+.log .t{color:var(--sub);font-variant-numeric:tabular-nums}
+.houses,.places,.firms{list-style:none;margin:0;padding:0}
+.ship{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.ship .ship-url{flex:1 1 180px;width:auto;font-size:14px;padding:4px 8px}
+.shipped{color:#2f7a45;margin-top:6px}
+.unsent+.unsent{margin-top:10px}
+.numbers{list-style:none;margin:6px 0 0;padding:0}
+.numbers li{display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #e2d6bd}
+.numbers .grow{flex:1;min-width:0}
+.numbers .num{width:90px;font-size:15px;padding:4px 8px}
+.houses li,.places li,.firms li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid #e2d6bd}
+.houses .sw{width:12px;height:12px;border-radius:3px;flex:none;align-self:flex-start;margin-top:5px}
+.houses .grow{flex:1;min-width:0}
+.houses .grow p{margin:2px 0 0}
+.houses .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.row{display:flex;gap:6px}
+.pennants{margin:0;padding-left:1.2em}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:12px 0 0;font-size:15px}
+.facts dt{color:var(--sub)} .facts dd{margin:0}
+.modal{position:fixed;inset:0;background:rgba(6,5,11,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.card{background:var(--panel);color:var(--panel-ink);border:3px solid var(--frame);border-radius:12px;padding:18px;width:min(420px,100%);display:grid;gap:10px}
+.card h2{margin:0;font-size:22px}
+.stack{display:grid;gap:8px}
+.err{color:var(--bad);margin:0;min-height:1.2em;font-size:15px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hud">
+    <div class="brand"><b>COVENANT ISLE</b><span id="place">Covenant Isle</span></div>
+    <div class="hud-right">
+      <button type="button" class="hbtn" id="needBtn">All clear</button>
+      <button type="button" class="hbtn" id="travelBtn">Travel</button>
+      <button type="button" class="hbtn" id="mapBtn" aria-pressed="true">Map</button>
+      <button type="button" class="hbtn" id="timeBtn">Time: live</button>
+      <button type="button" class="hbtn" id="wxBtn">Weather: live</button>
+      <button type="button" class="hbtn" id="acctBtn">Sign in</button>
+    </div>
+  </header>
+  <div class="stage">
+    <div class="screen">
+      <canvas id="game" aria-label="Covenant Isle. Use the arrow keys or click to walk; E to talk."></canvas>
+      <canvas id="mini" aria-label="Map. Click to walk there."></canvas>
+      <button type="button" id="arrow" hidden aria-label="Walk to the house that needs you"></button>
+      <div id="hint" hidden></div>
+      <div id="toast" hidden role="status"></div>
+      <div id="banner" class="banner" aria-live="polite"></div>
+      <div id="shout" class="shout" hidden aria-live="polite"></div>
+    </div>
+  </div>
+  <p class="keys">Arrows or WASD to walk · click anywhere to walk there · E to talk · Esc to close · M map · T travel · B board</p>
+</div>
+
+<aside id="panel" class="panel" hidden aria-labelledby="pTitle">
+  <div class="panel-head">
+    <div><p class="eyebrow" id="pEyebrow"></p><h2 id="pTitle"></h2><p id="pSub"></p></div>
+    <button type="button" class="btn ghost" id="pClose">Close</button>
+  </div>
+  <div id="pBody"></div>
+</aside>
+<div id="modal" class="modal" hidden><div class="card" id="modalCard" role="dialog" aria-modal="true"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js" onerror="window.VILLAGE_CONFIG=window.VILLAGE_CONFIG||{}"></script>
+<script src="js/sample.js"></script>
+<script src="js/world.js"></script>
+<script src="js/interiors.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
