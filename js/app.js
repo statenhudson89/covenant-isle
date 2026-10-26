@@ -1,7 +1,7 @@
 /* Bot Village: the game, the panels and the data. Reads Supabase as the signed-in owner;
    approvals, sets and wildcards go through the PIN-checked functions. */
 'use strict';
-(function () {
+function startVillage() {
 const W = VW.build();
 const { TILE, MW, MH, PAL, SHADOW } = W;
 const { hash, R, P, ell, ring, fillPoly, line, sprite } = W.helpers;
@@ -1000,7 +1000,7 @@ function sunShadow(cx, cy, rx, alpha) {
 
 /* ---------- ambient life ---------- */
 const cloudShape = (() => {
-  const c = document.createElement('canvas'); c.width = 200; c.height = 90; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = 200; c.height = 90; const g = c.getContext('2d', { willReadFrequently: true });
   [[60, 50, 46, 22], [110, 40, 52, 26], [150, 55, 40, 20], [90, 62, 50, 18], [130, 30, 30, 14]].forEach(([x, y, rx, ry]) => ell(g, x, y, rx, ry, SHADOW));
   return c;
 })();
@@ -1066,11 +1066,11 @@ function ambientAfterActors(anim, ph) {
 /* ---------- weather and sky ---------- */
 const puffShape = (() => {
   // a cloud seen from above: three stepped layers, densest in the middle
-  const c = document.createElement('canvas'); c.width = 220; c.height = 110; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = 220; c.height = 110; const g = c.getContext('2d', { willReadFrequently: true });
   [[0, '#cfd6ea'], [1, '#e8ecf6'], [2, '#ffffff']].forEach(([k, col]) => [[70, 60, 58, 30], [130, 50, 64, 34], [170, 66, 44, 26], [100, 74, 60, 24]].forEach(([x, y, rx, ry]) => ell(g, x, y - k * 3, rx - k * 9, ry - k * 6, col)));
   return c;
 })();
-const fogShape = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 80; const g = c.getContext('2d'); [[150, 40, 140, 30], [80, 45, 70, 22], [230, 38, 60, 20]].forEach(([x, y, rx, ry]) => ell(g, x, y, rx, ry, '#dde3f0')); return c; })();
+const fogShape = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 80; const g = c.getContext('2d', { willReadFrequently: true }); [[150, 40, 140, 30], [80, 45, 70, 22], [230, 38, 60, 20]].forEach(([x, y, rx, ry]) => ell(g, x, y, rx, ry, '#dde3f0')); return c; })();
 function weatherBack(anim) {
   // puddles on paths while it rains, with rings from the drops
   const wx = envNow.wx; if (wx.kind !== 'rain' && wx.kind !== 'storm') return;
@@ -1367,7 +1367,7 @@ function updateOverlay() {
     } else arrow.hidden = true;
   } else arrow.hidden = true;
 }
-const miniEl = $('#mini'), mctx = miniEl.getContext('2d'); miniEl.width = MW * 2; miniEl.height = MH * 2; mctx.imageSmoothingEnabled = false;
+const miniEl = $('#mini'), mctx = miniEl.getContext('2d', { willReadFrequently: true }); miniEl.width = MW * 2; miniEl.height = MH * 2; mctx.imageSmoothingEnabled = false;
 function drawMini() {
   if (miniEl.hidden || room) return;
   mctx.drawImage(W.mini, 0, 0, MW * 2, MH * 2);
@@ -1602,7 +1602,7 @@ function accountMenu() {
 const snaps = new Map();
 function snap(c) { try { c.toBlob(b => { if (b) snaps.set(c, b); }); } catch { /* no copy kept */ } }
 const wiped = (c, x, y) => { try { return c.getContext('2d').getImageData(x, y, 1, 1).data[3] === 0; } catch { return false; } };
-async function repaint(c) { const b = snaps.get(c); if (!b) return; const img = await createImageBitmap(b), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0); }
+async function repaint(c) { const b = snaps.get(c); if (!b) return; const img = await createImageBitmap(b), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0); if (img.close) img.close(); }
 let healing = false;
 async function heal() {
   if (healing) return; healing = true;
@@ -1691,10 +1691,11 @@ $('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal' &
 /* ---------- start ---------- */
 miniEl.hidden = !store.get('mini', true); $('#mapBtn').setAttribute('aria-pressed', String(!miniEl.hidden));
 initCritters(); computeRunner(); fitView();
+$('#loading').hidden = true;
 addEventListener('resize', fitView); addEventListener('orientationchange', () => setTimeout(fitView, 250));
-[W.canvas, W.upper, W.mini, cloudShape, puffShape, fogShape].forEach(c => { snap(c); c.addEventListener('contextrestored', heal); });
+[W.canvas, W.upper, W.mini, cloudShape, puffShape, fogShape].forEach((c, i) => { setTimeout(() => snap(c), 4000 + i * 1200); c.addEventListener('contextrestored', heal); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) heal(); });
-addEventListener('pageshow', heal); addEventListener('focus', heal); setInterval(() => { if (!document.hidden) heal(); }, 2500);
+addEventListener('pageshow', heal); addEventListener('focus', heal); setInterval(() => { if (!document.hidden) heal(); }, 5000);
 if (isPhone() && !standalone() && !canFull && !store.get('homeTip', false)) { store.set('homeTip', true); setTimeout(() => toast('Tip: Share → Add to Home Screen opens the village full screen.', 5000), 2500); }
 let acc = 0, prev = performance.now(), frameN = 0;
 function loop(now) {
@@ -1719,4 +1720,6 @@ requestAnimationFrame(loop);
   }
   signInView();
 })();
-})();
+}
+// let the loading screen paint before the island is built
+setTimeout(startVillage, 50);

@@ -1074,12 +1074,12 @@ function build() {
   Object.values(STAIRS).flat().forEach(([x, y]) => reserveAround(x, y, 1, 1, 1));
 
   const canvas = document.createElement('canvas'); canvas.width = WPX; canvas.height = WPY;
-  const c = canvas.getContext('2d'); c.imageSmoothingEnabled = false;
+  const c = canvas.getContext('2d', { willReadFrequently: true }); c.imageSmoothingEnabled = false;
   drawGround(c);
   drawFallsAndScree(c);
 
   const shadC = document.createElement('canvas'); shadC.width = WPX; shadC.height = WPY;
-  const sh = shadC.getContext('2d'); sh.fillStyle = SHADOW; drawShadows(sh);
+  const sh = shadC.getContext('2d', { willReadFrequently: true }); sh.fillStyle = SHADOW; drawShadows(sh);
 
   // buildings
   BUILDINGS.forEach(b => {
@@ -1202,7 +1202,7 @@ function build() {
   objs.sort((a, z) => a.y - z.y).forEach(o => o.draw(c));
   // the upper layer: everything above head height (roofs, canopies, beams), drawn over the characters
   const upper = document.createElement('canvas'); upper.width = WPX; upper.height = WPY;
-  const u = upper.getContext('2d'); u.imageSmoothingEnabled = false;
+  const u = upper.getContext('2d', { willReadFrequently: true }); u.imageSmoothingEnabled = false;
   objs.forEach(o => {
     if (o.cut == null) return;
     const g = GLASS.length, l = LIGHTS.length, ch = CHIMNEYS.length, keepArea = KEEP_AREA;   // redrawing must not register lights twice
@@ -1220,7 +1220,7 @@ function build() {
   cable(STATIONS.gondolaLow, STATIONS.gondolaHigh, 10, 'gondola'); cable(STATIONS.zipTop, STATIONS.zipLow, 18, 'zip');
 
   // minimap: one pixel per tile
-  const mini = document.createElement('canvas'); mini.width = MW; mini.height = MH; const m = mini.getContext('2d');
+  const mini = document.createElement('canvas'); mini.width = MW; mini.height = MH; const m = mini.getContext('2d', { willReadFrequently: true });
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const i = id(x, y), t = ter[i]; let col;
     if (t === T.SEA) col = deep[i] ? PAL.water[1] : PAL.water[2]; else if (t === T.SHALLOW) col = PAL.water[3]; else if (t === T.SAND) col = PAL.sand[3];

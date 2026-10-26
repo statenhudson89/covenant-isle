@@ -224,7 +224,7 @@ function build(id, W) {
   if (!PAL) { PAL = W.PAL; ({ R, P, ell, ring, fillPoly, line, hash, stone } = W.helpers); }
   if (!LAYOUT[id]) return null;
   const cw = RW * T, ch = RH * T, canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
-  const c = canvas.getContext('2d'); c.imageSmoothingEnabled = false;
+  const c = canvas.getContext('2d', { willReadFrequently: true }); c.imageSmoothingEnabled = false;
   const room = { id, W, w: RW, h: RH, cw, ch, canvas, solid: new Uint8Array(RW * RH), inter: new Map(), slots: [], lights: [], windows: [], anims: [], start: START, door: DOOR, bot: null, slotStyle: null };
   const block = (x, y, w = 1, h = 1, o) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { room.solid[yy * RW + xx] = 1; if (o) room.inter.set(xx + ',' + yy, o); } };
   for (let x = 0; x < RW; x++) { block(x, 0); block(x, 1); if (x !== DOOR[0]) block(x, RH - 1); }
