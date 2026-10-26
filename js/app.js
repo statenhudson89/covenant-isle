@@ -1345,6 +1345,7 @@ function updateHud() {
   $('#wxBtn').textContent = weatherMode === 'live' ? `Weather: live · ${liveWx.kind}` : `Weather: ${weatherMode}`;
 }
 function updateOverlay() {
+  pad.classList.toggle('dim', uiOpen()); aBtn.classList.toggle('dim', uiOpen());
   const n = regionName();
   if (n !== placeName) {
     placeName = n; $('#place').textContent = n;
@@ -1639,6 +1640,34 @@ async function toggleFull() {
   } catch { toast('Full screen isn\'t available in this browser.'); }
 }
 
+/* ---------- touch screens: a see-through d-pad and an A button ---------- */
+const touchUI = matchMedia('(pointer: coarse)').matches;
+const pad = $('#pad'), aBtn = $('#aBtn');
+let padDir = null, padActive = false;
+function interact() {
+  if (uiOpen() || fadeDir) return;
+  const v = DV2[player.dir]; let o = objAt(player.x + v[0], player.y + v[1]);
+  if (!o) for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { o = objAt(player.x + dx, player.y + dy); if (o) { face(player.x + dx, player.y + dy); break; } }
+  if (o) act(o); else if (touchUI) toast('Nothing here to use. Walk up to a bot, a door or a sign.');
+}
+// the thumb can slide between directions without lifting
+function setPadDir(d) {
+  if (d === padDir) return;
+  if (padDir) { const i = keys.indexOf(padDir); if (i >= 0) keys.splice(i, 1); }
+  padDir = d; if (d && !keys.includes(d)) keys.push(d);
+  pad.querySelectorAll('[data-dir]').forEach(el2 => el2.classList.toggle('on', el2.dataset.dir === d));
+}
+function padAt(e) {
+  const r = pad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < r.width * .12) return null;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+}
+function showPad() {
+  const on = touchUI && store.get('pad', true);
+  pad.hidden = aBtn.hidden = !on;
+  $('#padBtn').hidden = !touchUI; $('#padBtn').textContent = `D-pad: ${on ? 'on' : 'off'}`;
+}
+
 /* ---------- input ---------- */
 const KEYMAP = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
@@ -1656,7 +1685,7 @@ addEventListener('keydown', e => {
   if (uiOpen()) return;
   const d = KEYMAP[e.code];
   if (d) { e.preventDefault(); if (!keys.includes(d)) keys.push(d); return; }
-  if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); const v = DV2[player.dir]; let o = objAt(player.x + v[0], player.y + v[1]); if (!o) for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { o = objAt(player.x + dx, player.y + dy); if (o) { face(player.x + dx, player.y + dy); break; } } act(o); }
+  if (e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); interact(); }
   if (e.code === 'KeyM') toggleMini();
   if (e.code === 'KeyT') openTravel(null);
   if (e.code === 'KeyB') openBoard();
@@ -1672,6 +1701,15 @@ cv.addEventListener('pointerdown', e => {
 miniEl.addEventListener('pointerdown', e => { if (room) return; const r = miniEl.getBoundingClientRect(); const x = Math.floor((e.clientX - r.left) / r.width * MW), y = Math.floor((e.clientY - r.top) / r.height * MH); const [fx, fy] = walk(x, y) || objAt(x, y) ? [x, y] : nearestFree(x, y); goTo(fx, fy); });
 function toggleMini() { miniEl.hidden = !miniEl.hidden; $('#mapBtn').setAttribute('aria-pressed', String(!miniEl.hidden)); store.set('mini', !miniEl.hidden); }
 $('#mapBtn').addEventListener('click', toggleMini);
+pad.addEventListener('pointerdown', e => { e.preventDefault(); padActive = true; try { pad.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ } setPadDir(padAt(e)); });
+pad.addEventListener('pointermove', e => { if (padActive) setPadDir(padAt(e)); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => pad.addEventListener(n, () => { padActive = false; setPadDir(null); }));
+aBtn.addEventListener('pointerdown', e => { e.preventDefault(); aBtn.classList.add('on'); interact(); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(n => aBtn.addEventListener(n, () => aBtn.classList.remove('on')));
+$('#padBtn').addEventListener('click', () => { store.set('pad', !store.get('pad', true)); showPad(); });
+// a long press on the game shouldn't select text or pop up the "save image" menu
+$('.screen').addEventListener('contextmenu', e => e.preventDefault());
+showPad();
 setBtn.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
 document.addEventListener('pointerdown', e => { if (!setEl.hidden && !setEl.contains(e.target) && !setBtn.contains(e.target)) toggleSettings(false); });
 $('#fullBtn').hidden = !canFull;
