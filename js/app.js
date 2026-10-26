@@ -1626,6 +1626,7 @@ function fitView() {
   if (w !== VWW) { VWW = w; cv.width = VWW; ctx.imageSmoothingEnabled = false; lvlBuf = new Uint8Array(VWW * VWH); camFX = null; }
   $('.screen').style.aspectRatio = full ? '' : `${VWW} / ${VWH}`;
   updateHud();
+  requestAnimationFrame(() => placeTouch());
 }
 
 /* ---------- settings menu ---------- */
@@ -1641,7 +1642,7 @@ async function toggleFull() {
 }
 
 /* ---------- touch screens: a see-through d-pad and an A button ---------- */
-const touchUI = matchMedia('(pointer: coarse)').matches;
+const touchUI = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
 const pad = $('#pad'), aBtn = $('#aBtn');
 let padDir = null, padActive = false;
 function interact() {
@@ -1662,10 +1663,20 @@ function padAt(e) {
   if (Math.hypot(dx, dy) < r.width * .12) return null;
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
 }
+function placeTouch() {
+  if (pad.hidden) return;
+  const scr = $('.screen').getBoundingClientRect(), r = cv.getBoundingClientRect(), sc = Math.min(r.width / VWW, r.height / VWH);
+  const picBottom = r.top + (r.height + VWH * sc) / 2, vv = window.visualViewport, visBottom = vv ? vv.offsetTop + vv.height : innerHeight;
+  const size = pad.offsetWidth || 120, aSize = aBtn.offsetWidth || 64, below = visBottom - picBottom;
+  const top = below > size + 60 ? picBottom + 18 : Math.min(visBottom, scr.bottom) - size - 18;
+  pad.style.top = (top - scr.top) + 'px'; pad.style.bottom = 'auto';
+  aBtn.style.top = (top - scr.top + (size - aSize) / 2) + 'px'; aBtn.style.bottom = 'auto';
+}
 function showPad() {
   const on = touchUI && store.get('pad', true);
   pad.hidden = aBtn.hidden = !on;
   $('#padBtn').hidden = !touchUI; $('#padBtn').textContent = `D-pad: ${on ? 'on' : 'off'}`;
+  placeTouch();
 }
 
 /* ---------- input ---------- */
@@ -1710,6 +1721,8 @@ $('#padBtn').addEventListener('click', () => { store.set('pad', !store.get('pad'
 // a long press on the game shouldn't select text or pop up the "save image" menu
 $('.screen').addEventListener('contextmenu', e => e.preventDefault());
 showPad();
+if (window.visualViewport) { visualViewport.addEventListener('resize', placeTouch); visualViewport.addEventListener('scroll', placeTouch); }
+setTimeout(placeTouch, 600);
 setBtn.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
 document.addEventListener('pointerdown', e => { if (!setEl.hidden && !setEl.contains(e.target) && !setBtn.contains(e.target)) toggleSettings(false); });
 $('#fullBtn').hidden = !canFull;
