@@ -5,7 +5,7 @@
 const W = VW.build();
 const { TILE, MW, MH, PAL, SHADOW } = W;
 const { hash, R, P, ell, ring, fillPoly, line, sprite } = W.helpers;
-const VWW = 480, VWH = 270;
+let VWW = 480; const VWH = 270;
 const cv = document.getElementById('game'); cv.width = VWW; cv.height = VWH;
 const ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.imageSmoothingEnabled = false;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -206,7 +206,7 @@ const bridgeSet = new Set(W.BRIDGE_TILES.map(([x, y]) => W.key(x, y)));
 const gateSet = new Set(W.SUMMIT_GATE.map(([x, y]) => W.key(x, y)));
 let room = null;
 const rooms = {};
-const roomOf = id => rooms[id] || (rooms[id] = VI.build(id, W));
+const roomOf = id => rooms[id] || (rooms[id] = (r => { if (r) snap(r.canvas); return r; })(VI.build(id, W)));
 const walk = (x, y) => room ? x > 0 && y > 0 && x < room.w && y < room.h && !room.solid[y * room.w + x] : walkWorld(x, y);
 function walkWorld(x, y) {
   if (!W.inb(x, y)) return false;
@@ -930,7 +930,7 @@ function drawStatue(sx, sy) {
 /* ---------- lighting ---------- */
 const MODES = { dusk: { amb: [1, .8, .72], s: [0, .14, .24, .36] }, night: { amb: [.3, .34, .62], s: [0, .34, .58, .82] } };
 const WARM = [1.18, .96, .72];
-const lvlBuf = new Uint8Array(VWW * VWH);
+let lvlBuf = new Uint8Array(VWW * VWH);
 function lightUp(lights, camX, camY) {
   const f = Math.floor(t / 14);
   lights.forEach((L, i) => {
@@ -967,7 +967,7 @@ let clock = { at: -999, h: 12, wd: 'Mon' };
 function readClock() { if (t - clock.at > 120 || clock.at < 0) { const o = nyParts(); clock = { at: t, h: (+o.hour % 24) + (+o.minute) / 60, wd: o.weekday }; } return clock; }
 function nyWeekday() { return readClock().wd; }
 // the sky's colour through the day: night blue, a pink dawn, white noon, a golden hour, a violet dusk
-const SKY = [[0, [.28, .31, .58]], [5, [.3, .33, .6]], [6.2, [.72, .56, .68]], [7.3, [.98, .88, .84]], [9, [1, 1, 1]], [16, [1, .98, .94]], [17.4, [1, .84, .7]], [18.6, [.8, .6, .66]], [19.6, [.36, .37, .64]], [24, [.28, .31, .58]]];
+const SKY = [[0, [.38, .41, .66]], [5, [.4, .43, .68]], [6.2, [.72, .56, .68]], [7.3, [.98, .88, .84]], [9, [1, 1, 1]], [16, [1, .98, .94]], [17.4, [1, .84, .7]], [18.6, [.8, .6, .66]], [19.6, [.44, .45, .7]], [24, [.38, .41, .66]]];
 let weatherMode = store.get('weather', 'live'), liveWx = { kind: 'clear', wind: .25 }, flash = 0;
 function weatherNow() { if (weatherMode === 'live') return liveWx; return { kind: weatherMode, wind: { storm: .95, rain: .5, snow: .35, fog: .15 }[weatherMode] || .25 }; }
 async function fetchWeather() {
@@ -1338,7 +1338,8 @@ function regionName() {
 function updateHud() {
   const need = Object.keys(DV.pending).length, total = Object.values(DV.pending).reduce((n, a) => n + a.length, 0);
   const toSend = Object.values(DV.unsent).reduce((n, a) => n + a.length, 0);
-  const btn = $('#needBtn'); btn.textContent = (need ? `${total} waiting · ${need} houses` : 'All clear') + (toSend ? ` · ${toSend} to send` : ''); btn.classList.toggle('alert', need > 0 || toSend > 0);
+  const short = document.body.classList.contains('full');
+  const btn = $('#needBtn'); btn.textContent = (need ? (short ? `${total} waiting` : `${total} waiting · ${need} houses`) : 'All clear') + (toSend ? ` · ${toSend} to send` : ''); btn.classList.toggle('alert', need > 0 || toSend > 0);
   $('#acctBtn').textContent = mode === 'live' ? (userEmail || 'Signed in') : mode === 'sample' ? 'Sample village' : 'Sign in';
   $('#timeBtn').textContent = { auto: 'Time: live', day: 'Time: day', dusk: 'Time: dusk', night: 'Time: night' }[timeMode];
   $('#wxBtn').textContent = weatherMode === 'live' ? `Weather: live · ${liveWx.kind}` : `Weather: ${weatherMode}`;
@@ -1596,11 +1597,54 @@ function accountMenu() {
   ]);
 }
 
+/* ---------- phones can wipe images that were drawn once (after the tab sleeps, or when memory runs low) ---------- */
+// keep a PNG of each one, and paint it back if its pixels come back empty
+const snaps = new Map();
+function snap(c) { try { c.toBlob(b => { if (b) snaps.set(c, b); }); } catch { /* no copy kept */ } }
+const wiped = (c, x, y) => { try { return c.getContext('2d').getImageData(x, y, 1, 1).data[3] === 0; } catch { return false; } };
+async function repaint(c) { const b = snaps.get(c); if (!b) return; const img = await createImageBitmap(b), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0); }
+let healing = false;
+async function heal() {
+  if (healing) return; healing = true;
+  try {
+    const jobs = [];
+    if (wiped(W.canvas, 1, 1)) jobs.push(W.canvas, W.upper);
+    if (wiped(W.mini, 0, 0)) jobs.push(W.mini);
+    [[cloudShape, 110, 40], [puffShape, 130, 50], [fogShape, 150, 40]].forEach(([c, x, y]) => { if (wiped(c, x, y)) jobs.push(c); });
+    Object.values(rooms).forEach(r => { if (r && wiped(r.canvas, 1, 1)) jobs.push(r.canvas); });
+    await Promise.all(jobs.map(c => repaint(c).catch(() => {})));
+  } finally { healing = false; }
+}
+
+/* ---------- phones: the game fills the screen and the view widens to match it ---------- */
+const isPhone = () => matchMedia('(pointer: coarse)').matches && Math.min(innerWidth, innerHeight) < 600;
+const standalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+function fitView() {
+  const full = isPhone(); document.body.classList.toggle('full', full);
+  const w = full && innerWidth > innerHeight ? clamp(Math.round(VWH * innerWidth / innerHeight / 2) * 2, 360, 640) : 480;
+  if (w !== VWW) { VWW = w; cv.width = VWW; ctx.imageSmoothingEnabled = false; lvlBuf = new Uint8Array(VWW * VWH); camFX = null; }
+  $('.screen').style.aspectRatio = full ? '' : `${VWW} / ${VWH}`;
+  updateHud();
+}
+
+/* ---------- settings menu ---------- */
+const setEl = $('#settings'), setBtn = $('#setBtn');
+function toggleSettings(open = setEl.hidden) { setEl.hidden = !open; setBtn.setAttribute('aria-expanded', String(open)); }
+const fsRoot = document.documentElement, canFull = !!(fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen);
+async function toggleFull() {
+  toggleSettings(false);
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { await (fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen).call(fsRoot); if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }
+  } catch { toast('Full screen isn\'t available in this browser.'); }
+}
+
 /* ---------- input ---------- */
 const KEYMAP = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
 const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 function dismissTop() {
   const tEl = $('#toast');
+  if (!setEl.hidden) { toggleSettings(false); return true; }
   if (!$('#modal').hidden) { if (mode) closeModal(); return true; }
   if (!panel.hidden) { closePanel(); return true; }
   if (!tEl.hidden) { tEl.hidden = true; clearTimeout(toastTimer); return true; }
@@ -1621,15 +1665,21 @@ addEventListener('keyup', e => { const d = KEYMAP[e.code]; if (d) { const i = ke
 addEventListener('blur', () => { keys.length = 0; });
 cv.addEventListener('pointerdown', e => {
   if (uiOpen() || fadeDir) return;
-  const r = cv.getBoundingClientRect(), x = Math.floor(((e.clientX - r.left) / r.width * VWW + camX) / TILE), y = Math.floor(((e.clientY - r.top) / r.height * VWH + camY) / TILE);
+  const r = cv.getBoundingClientRect(), sc = Math.min(r.width / VWW, r.height / VWH), ox = (r.width - VWW * sc) / 2, oy = (r.height - VWH * sc) / 2;
+  const x = Math.floor(((e.clientX - r.left - ox) / sc + camX) / TILE), y = Math.floor(((e.clientY - r.top - oy) / sc + camY) / TILE);
   goTo(x, y);
 });
 miniEl.addEventListener('pointerdown', e => { if (room) return; const r = miniEl.getBoundingClientRect(); const x = Math.floor((e.clientX - r.left) / r.width * MW), y = Math.floor((e.clientY - r.top) / r.height * MH); const [fx, fy] = walk(x, y) || objAt(x, y) ? [x, y] : nearestFree(x, y); goTo(fx, fy); });
 function toggleMini() { miniEl.hidden = !miniEl.hidden; $('#mapBtn').setAttribute('aria-pressed', String(!miniEl.hidden)); store.set('mini', !miniEl.hidden); }
 $('#mapBtn').addEventListener('click', toggleMini);
+setBtn.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
+document.addEventListener('pointerdown', e => { if (!setEl.hidden && !setEl.contains(e.target) && !setBtn.contains(e.target)) toggleSettings(false); });
+$('#fullBtn').hidden = !canFull;
+$('#fullBtn').addEventListener('click', toggleFull);
+$('#homeNote').hidden = canFull || standalone() || !/iPhone|iPod/.test(navigator.userAgent);
 $('#travelBtn').addEventListener('click', () => openTravel(null));
 $('#needBtn').addEventListener('click', openBoard);
-$('#acctBtn').addEventListener('click', accountMenu);
+$('#acctBtn').addEventListener('click', () => { toggleSettings(false); accountMenu(); });
 $('#timeBtn').addEventListener('click', () => { const order = ['auto', 'day', 'dusk', 'night']; timeMode = order[(order.indexOf(timeMode) + 1) % order.length]; store.set('time', timeMode); updateHud(); });
 $('#pClose').addEventListener('click', closePanel);
 $('#wxBtn').addEventListener('click', () => { const order = ['live', 'clear', 'rain', 'storm', 'fog', 'snow']; weatherMode = order[(order.indexOf(weatherMode) + 1) % order.length]; store.set('weather', weatherMode); updateHud(); });
@@ -1640,7 +1690,12 @@ $('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal' &
 
 /* ---------- start ---------- */
 miniEl.hidden = !store.get('mini', true); $('#mapBtn').setAttribute('aria-pressed', String(!miniEl.hidden));
-initCritters(); computeRunner(); updateHud();
+initCritters(); computeRunner(); fitView();
+addEventListener('resize', fitView); addEventListener('orientationchange', () => setTimeout(fitView, 250));
+[W.canvas, W.upper, W.mini, cloudShape, puffShape, fogShape].forEach(c => { snap(c); c.addEventListener('contextrestored', heal); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) heal(); });
+addEventListener('pageshow', heal); addEventListener('focus', heal); setInterval(() => { if (!document.hidden) heal(); }, 2500);
+if (isPhone() && !standalone() && !canFull && !store.get('homeTip', false)) { store.set('homeTip', true); setTimeout(() => toast('Tip: Share → Add to Home Screen opens the village full screen.', 5000), 2500); }
 let acc = 0, prev = performance.now(), frameN = 0;
 function loop(now) {
   acc += Math.min(100, now - prev); prev = now;
@@ -1654,7 +1709,7 @@ requestAnimationFrame(loop);
   const cfg = window.VILLAGE_CONFIG || {};
   if (new URLSearchParams(location.search).has('sample')) {
     // test hook for the sample village only: step the simulation without relying on animation frames
-    window.__village = { W, player, goTo, travel, act, objAt, get DV() { return DV; }, run(n = 60) { for (let i = 0; i < n; i++) step(); render(); updateOverlay(); drawMini(); return { x: player.x, y: player.y, place: regionName() }; }, time(m) { timeMode = m; updateHud(); }, weather(m) { weatherMode = m; updateHud(); }, get env() { return envNow; }, enter: enterRoom, leave: leaveRoom, get room() { return room; }, critters, routes, botPos, get shout() { return shout; }, event(k) { if (k === 'goal') celebrateGoal(D.goals[0]); if (k === 'ship') shipSailsIn(Math.max(0, DV.ships - 1)); if (k === 'camp' && DV.tents[0]) raiseFlag(DV.tents[0].firm.name); } };
+    window.__village = { W, player, goTo, travel, act, objAt, get DV() { return DV; }, run(n = 60) { for (let i = 0; i < n; i++) step(); render(); updateOverlay(); drawMini(); return { x: player.x, y: player.y, place: regionName() }; }, time(m) { timeMode = m; updateHud(); }, weather(m) { weatherMode = m; updateHud(); }, get env() { return envNow; }, heal, wipe() { [W.canvas, W.upper, W.mini].forEach(c => c.getContext('2d').clearRect(0, 0, c.width, c.height)); }, fit: fitView, enter: enterRoom, leave: leaveRoom, get room() { return room; }, critters, routes, botPos, get shout() { return shout; }, event(k) { if (k === 'goal') celebrateGoal(D.goals[0]); if (k === 'ship') shipSailsIn(Math.max(0, DV.ships - 1)); if (k === 'camp' && DV.tents[0]) raiseFlag(DV.tents[0].firm.name); } };
     startSample(); return;
   }
   if (cfg.supabaseUrl && cfg.anonKey && window.supabase) {

@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Covenant Isle</title>
+<meta name="theme-color" content="#100e1b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Covenant Isle">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -27,6 +35,10 @@ body{font-family:var(--body);font-size:16px;line-height:1.45;padding-left:max(12
 .brand b{font-family:var(--display);font-size:11px;letter-spacing:.06em;color:var(--lamp);font-weight:400}
 #place{font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud-right{display:flex;flex-wrap:wrap;gap:6px}
+.hud-right{position:relative}
+.settings{position:absolute;right:0;top:calc(100% + 6px);display:grid;gap:6px;min-width:210px;background:#141224;border:2px solid var(--line);border-radius:10px;padding:8px;z-index:6;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.settings .hbtn{text-align:left}
+.set-note{margin:2px 2px 0;font-size:13px;color:var(--muted);max-width:220px}
 .hbtn{font-family:var(--body);font-size:15px;color:var(--ink);background:#1b1829;border:2px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
 .hbtn[aria-pressed="true"]{border-color:var(--lamp);color:var(--lamp)}
 .hbtn.alert{background:#5a2430;border-color:#8a3040}
@@ -46,6 +58,22 @@ canvas#game{display:block;width:100%;height:100%;image-rendering:pixelated;image
 .banner.show{animation:bannerIn 2.8s steps(14) forwards}
 @keyframes bannerIn{0%{opacity:0;transform:translateY(6px)}15%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion: reduce){.banner.show{animation:none;opacity:1}}
+/* phones: the game fills the screen; the HUD floats over it */
+body.full{padding:0;overflow:hidden;overscroll-behavior:none}
+body.full .app{max-width:none;padding:0;gap:0;height:100dvh}
+body.full .stage{position:fixed;inset:0}
+body.full .screen{width:100%;height:100%;max-width:none;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none}
+body.full canvas#game{object-fit:contain}
+body.full .keys{display:none}
+body.full .hud{position:fixed;z-index:4;top:max(6px,env(safe-area-inset-top,0px));left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));flex-wrap:nowrap;align-items:flex-start;pointer-events:none}
+body.full .hud>*{pointer-events:auto}
+body.full .brand b{display:none}
+body.full #place{font-size:13px;color:#fff6e0;background:rgba(6,5,11,.55);padding:3px 8px;border-radius:6px}
+body.full .hud-right{flex-wrap:nowrap}
+body.full .hbtn{font-size:13px;padding:3px 9px;background:rgba(27,24,41,.85)}
+body.full .settings .hbtn{font-size:15px;padding:6px 10px}
+body.full #mini{top:auto;bottom:max(8px,env(safe-area-inset-bottom,0px));right:max(8px,env(safe-area-inset-right,0px));width:18%}
+body.full #toast{top:44px}
 .keys{margin:0;text-align:center;color:var(--muted);font-size:14px}
 button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #ffe08a;outline-offset:2px}
 .panel{position:fixed;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));width:min(460px,calc(100vw - 20px));overflow:auto;background:var(--panel);color:var(--panel-ink);border:3px solid var(--frame);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);padding:14px 16px 18px;z-index:5}
@@ -124,10 +152,15 @@ textarea,input{font-family:var(--body);font-size:16px;padding:7px 9px;border:2px
     <div class="hud-right">
       <button type="button" class="hbtn" id="needBtn">All clear</button>
       <button type="button" class="hbtn" id="travelBtn">Travel</button>
-      <button type="button" class="hbtn" id="mapBtn" aria-pressed="true">Map</button>
-      <button type="button" class="hbtn" id="timeBtn">Time: live</button>
-      <button type="button" class="hbtn" id="wxBtn">Weather: live</button>
-      <button type="button" class="hbtn" id="acctBtn">Sign in</button>
+      <button type="button" class="hbtn" id="setBtn" aria-expanded="false" aria-controls="settings">Settings</button>
+      <div id="settings" class="settings" hidden>
+        <button type="button" class="hbtn" id="mapBtn" aria-pressed="true">Map</button>
+        <button type="button" class="hbtn" id="timeBtn">Time: live</button>
+        <button type="button" class="hbtn" id="wxBtn">Weather: live</button>
+        <button type="button" class="hbtn" id="fullBtn" hidden>Full screen</button>
+        <button type="button" class="hbtn" id="acctBtn">Sign in</button>
+        <p id="homeNote" class="set-note" hidden>For full screen: Share → Add to Home Screen, then open it from there.</p>
+      </div>
     </div>
   </header>
   <div class="stage">

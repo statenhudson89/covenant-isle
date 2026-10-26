@@ -1198,6 +1198,7 @@ function build() {
   TREES.forEach(([x, y, L]) => { ell(sh, x * TILE + 14, y * TILE + 14, 10, 4, SHADOW); objs.push({ y: (y + 1) * TILE, cut: y * TILE + 4, draw: cc => tree(cc, x * TILE, y * TILE, L > 0 || (Math.hypot(x - 18, y - 18) < 13 && hash(x, y, 75) < .5), L) }); });
 
   c.save(); c.globalAlpha = .38; c.drawImage(shadC, 0, 0); c.restore();
+  shadC.width = shadC.height = 0;   // free its memory; phones are short of it
   objs.sort((a, z) => a.y - z.y).forEach(o => o.draw(c));
   // the upper layer: everything above head height (roofs, canopies, beams), drawn over the characters
   const upper = document.createElement('canvas'); upper.width = WPX; upper.height = WPY;
