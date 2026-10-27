@@ -63,5 +63,36 @@ window.SAMPLE_DATA = function () {
   ];
   const readings = [['x-followers', 520, 480], ['x-followers', 538, 216], ['x-followers', 550, 30], ['substack-subs', 3877, 216]]
     .map(([goal_id, value, h], i) => ({ id: 'g' + i, goal_id, value, at: ago(h), source: 'you' }));
-  return { houses, goals, sets, approvals, activity, radar, wild, readings };
+  // a made-up base resume and one tailored version, linked to the Tailor's draft (s3)
+  const base = { name: 'Sample Person, CFA', contact: ['New York, NY', 'sample@example.com', '(555) 010-0100'], sections: [
+    { id: 'experience', title: 'Experience', items: [
+      { id: 'i1', parts: ['Director, Manager Research', 'Example Asset Management', 'Jan 2019 – Present'], entries: [
+        { id: 'e1', level: 0, text: 'Covers private credit managers for a multi-asset allocation platform' },
+        { id: 'e2', level: 0, text: 'External manager allocation', bold: true },
+        { id: 'e3', level: 1, text: 'Ran diligence on 60 private credit managers across direct lending and asset-based finance' },
+        { id: 'e4', level: 1, text: 'Built the team’s manager scoring framework' },
+        { id: 'e5', level: 0, text: 'Co-investments', bold: true },
+        { id: 'e6', level: 1, text: 'Underwrote co-investments alongside managers in specialty finance' },
+        { id: 'e7', level: 1, text: 'Presented recommendations to the investment committee' } ] },
+      { id: 'i2', parts: ['Co-Investment Analyst', 'Example Pension Fund', 'Feb 2015 – Dec 2018'], entries: [
+        { id: 'e8', level: 0, text: 'Sourced and diligenced private equity co-investments' },
+        { id: 'e9', level: 0, lead: 'Deal work:', text: 'supported diligence on credit and equity co-investments' } ] } ] },
+    { id: 'education', title: 'Education', items: [
+      { id: 'i3', parts: ['English', 'May 2012', 'Example College'], entries: [{ id: 'e10', level: 0, text: 'Minor: Economics' }] },
+      { id: 'i4', parts: ['CFA', 'June 2015', 'CFA Institute'], entries: [{ id: 'e11', level: 0, text: 'Charterholder' }] } ] } ] };
+  const v1 = JSON.parse(JSON.stringify(base));
+  const ex = v1.sections[0].items[0].entries;
+  v1.sections[0].items[0].entries = [ex[0], ex[4], { ...ex[5], text: 'Underwrote co-investments alongside managers in specialty finance and asset-based lending' }, ex[6], ex[1], ex[2],
+    { id: 'n1', level: 1, text: 'Writes a weekly specialty finance newsletter read by 3,877 subscribers', added: true }];
+  const resumes = [
+    { id: 'r1', firm: null, version: 1, content: base, status: 'base', created_by: 'import', created_at: ago(400), changes: [], comments: [] },
+    { id: 'r2', firm: 'Alder Capital', seat: 'strategic transactions / private credit / special projects', version: 1, based_on: 'r1', content: v1, status: 'pending', created_by: 'tailor', created_at: ago(2),
+      summary: 'Leads with co-investment underwriting, which is what the special projects seat needs. Moves allocation work below it and adds the newsletter.',
+      changes: [{ entry: 'e5', kind: 'moved', why: 'The seat wants underwriting first.' }, { entry: 'e6', kind: 'reworded', why: 'Names asset-based lending, from the Dojo’s Alder lesson.' },
+        { entry: 'e4', kind: 'cut', why: 'Process detail the seat doesn’t need.' }, { entry: 'n1', kind: 'added', why: 'From your record: Covenant Lite.' }], comments: [] } ];
+  approvals.find(a => a.id === 's3').resume_id = 'r2';
+  const record = [
+    { id: 1, house_id: 'tailor', name: 'resume.md', body: '# Sample Person, CFA\n\nMade-up record for the sample village.', updated_at: ago(400), updated_by: 'import' },
+    { id: 2, house_id: 'print', name: 'voice.md', body: '# Voice\n\n- Direct, specific, numerate.\n- No hype.', updated_at: ago(300), updated_by: 'import' } ];
+  return { houses, goals, sets, approvals, activity, radar, wild, readings, resumes, record };
 };

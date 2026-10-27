@@ -1,0 +1,20 @@
+{
+ "ppr": {
+  "title": "<w:pPr><w:pStyle w:val=\"Title\"/><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/><w:sz w:val=\"40\"/></w:rPr></w:pPr>",
+  "contact": "<w:pPr><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr></w:pPr>",
+  "h1": "<w:pPr><w:pStyle w:val=\"Heading1\"/><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr></w:pPr>",
+  "h2": "<w:pPr><w:pStyle w:val=\"Heading2\"/><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr></w:pPr>",
+  "b0": "<w:pPr><w:pStyle w:val=\"ListBullet\"/><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr></w:pPr>",
+  "b1": "<w:pPr><w:pStyle w:val=\"ListBullet\"/><w:numPr><w:ilvl w:val=\"1\"/><w:numId w:val=\"14\"/></w:numPr><w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr></w:pPr>"
+ },
+ "rpr": {
+  "title": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/><w:sz w:val=\"40\"/></w:rPr>",
+  "contact": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>",
+  "h1": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>",
+  "h2": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>",
+  "h2sep": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>",
+  "body": "<w:rPr><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>",
+  "bold": "<w:rPr><w:b/><w:i/><w:color w:val=\"000000\" w:themeColor=\"text1\"/></w:rPr>"
+ },
+ "sep": "\u00a0|\u00a0"
+}
