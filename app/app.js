@@ -551,6 +551,48 @@ function SignIn() {
     <p class="small muted" style="margin-top:18px">Only the village owner can see anything. <a href="?sample">Explore the sample instead</a>.</p></div>`;
 }
 
+/* ---------- the Ask bar: change things by asking (a Supabase function calls Claude) ---------- */
+async function askClaude(prompt, context) {
+  await needPin();
+  if (store.mode === 'sample') return { reply: 'The Ask bar works once you sign in to your own village. In the sample, nothing is real.', actions: [] };
+  const { data, error } = await sb.functions.invoke('ask', { body: { prompt, pin, context } });
+  if (error) {
+    let msg = error.message; try { msg = (await error.context.json()).error || msg; } catch { /* not JSON */ }
+    if (/wrong pin/i.test(msg)) pin = null;
+    throw new Error(msg);
+  }
+  await loadLive();
+  return data;
+}
+function contextOf(parts) {
+  const [p0, p1] = parts, c = { view: p0 || 'today' };
+  if (p0 === 'resume') { const r = store.d.resumes.find(x => x.id === p1); if (r) Object.assign(c, { resume_id: r.id, firm: r.firm || 'base resume', version: r.version }); }
+  if (p0 === 'firm') c.firm = p1;
+  if (p0 === 'draft') { const a = store.d.approvals.find(x => x.id === p1); if (a) Object.assign(c, { draft_id: a.id, draft_title: a.title, house: a.house_id }); }
+  if (p0 === 'doc') { const d = store.d.record.find(x => String(x.id) === String(p1)); if (d) Object.assign(c, { record_doc: d.name, house: d.house_id }); }
+  return c;
+}
+const ASK_HINT = { resume: 'Change this resume…', firm: 'Update this firm…', draft: 'Change this draft…', doc: 'Edit this document…' };
+function AskBar({ parts }) {
+  const [q, setQ] = useState(''), [busy, setBusy] = useState(false);
+  const send = async e => {
+    e.preventDefault(); const prompt = q.trim(); if (!prompt || busy) return;
+    setBusy(true);
+    try {
+      const res = await askClaude(prompt, contextOf(parts));
+      setQ('');
+      openSheet(html`<div class="sheet-bg" onClick=${ev => { if (ev.target === ev.currentTarget) closeSheet(); }}><div class="sheet" role="dialog" aria-label="Answer">
+        <p class="small muted" style="margin:0 0 6px">${prompt}</p><p style="margin:0 0 10px">${res.reply}</p>
+        ${(res.actions || []).length > 0 && html`<div class="list">${res.actions.map((a, k) => html`<a class="row" key=${k} href=${a.href} onClick=${closeSheet}><div class="grow"><div class="t">${a.label}</div></div><${Chev} /></a>`)}</div>`}
+        ${res.cost != null && html`<p class="tiny muted" style="margin:6px 0 0">About $${res.cost.toFixed(2)}</p>`}
+        <div class="actions"><button class="btn" onClick=${closeSheet}>Close</button></div></div></div>`);
+    } catch (err) { if (err.message !== 'cancelled') toast(err.message, 5000); }
+    setBusy(false);
+  };
+  return html`<form class="askbar" onSubmit=${send}><input value=${q} onInput=${e => setQ(e.target.value)} placeholder=${ASK_HINT[parts[0]] || 'Ask or change something…'} aria-label="Ask or change something" enterkeyhint="send" disabled=${busy} />
+    <button class="btn primary" type="submit" disabled=${busy || !q.trim()} aria-label="Send">${busy ? 'Working…' : 'Ask'}</button></form>`;
+}
+
 /* ---------- the shell ---------- */
 const TABS = [['today', 'Today', I.today], ['drafts', 'Drafts', I.drafts], ['jobs', 'Jobs', I.jobs], ['writing', 'Writing', I.writing], ['more', 'More', I.more]];
 const TAB_OF = { draft: 'drafts', firm: 'jobs', resume: 'jobs', people: 'more', goals: 'more', houses: 'more', record: 'more', doc: 'more' };
@@ -566,6 +608,7 @@ function App() {
   return html`<div class="shell">
     <nav class="side" aria-label="Sections"><div class="brand">Covenant Isle</div>${TABS.slice(0, 4).map(tabLink)}${tabLink(['people', 'People', I.people])}<div class="sep"></div>${tabLink(['more', 'More', I.more])}</nav>
     <main class="main">${view}</main>
+    <${AskBar} parts=${parts} />
     <nav class="tabbar" aria-label="Sections">${TABS.map(tabLink)}</nav>
     ${s.ui.toast && html`<div class="toast" role="status">${s.ui.toast}</div>`}
     ${s.ui.sheet}
